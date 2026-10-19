@@ -157,7 +157,7 @@ function App() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/[0.07] bg-[#0e1425] transition-transform duration-300 ${
+className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-y-auto overscroll-contain border-r border-white/[0.07] bg-[#0e1425] transition-transform duration-300        ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
