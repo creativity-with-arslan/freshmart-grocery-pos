@@ -1,9 +1,7 @@
-
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 export function getAuthHeaders() {
   const token = sessionStorage.getItem('freshmart_token')
-
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
@@ -28,7 +26,6 @@ export async function apiRequest(url, options = {}) {
     sessionStorage.removeItem('freshmart_token')
     sessionStorage.removeItem('freshmart_user')
     window.location.reload()
-
     throw new Error('Your session expired. Please log in again.')
   }
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { UserPlus, Users, RefreshCw, ShieldCheck } from 'lucide-react'
 import { apiRequest } from '../services/api'
 
-const API_URL = 'http://localhost:5000/api/auth/users'
+const API_URL = `${(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')}/api/auth/users`
 
 const emptyForm = {
   name: '',

@@ -1,7 +1,7 @@
 
 import { apiRequest } from './api'
 
-const API_URL = 'http://localhost:5000/api/sales'
+const API_URL = `${(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')}/api/sales`
 
 export async function createSale(saleData) {
   const result = await apiRequest(API_URL, {
