@@ -6,7 +6,11 @@ export function getAuthHeaders() {
 }
 
 export async function apiRequest(url, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${url}`, {
+  const requestUrl = /^https?:\/\//i.test(url)
+  ? url
+  : `${API_BASE_URL}${url}`
+
+const response = await fetch(requestUrl, {
     ...options,
     headers: {
       ...getAuthHeaders(),
