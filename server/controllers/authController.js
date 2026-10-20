@@ -206,3 +206,124 @@ export async function getUsers(req, res, next) {
     return next(error)
   }
 }
+const MAIN_ADMIN_EMAIL = 'admin@freshmart.local'
+
+export async function updateUser(req, res, next) {
+  try {
+    const { id } = req.params
+    const { name, email, role } = req.body || {}
+
+    if (
+      typeof name !== 'string' ||
+      !name.trim() ||
+      name.trim().length > 100 ||
+      typeof email !== 'string' ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
+      email.trim().length > 254 ||
+      !['admin', 'cashier'].includes(role)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide a valid name, email, and role.',
+      })
+    }
+
+    const user = await User.findById(id)
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.',
+      })
+    }
+
+    if (user.email.toLowerCase() === MAIN_ADMIN_EMAIL) {
+      return res.status(403).json({
+        success: false,
+        message: 'The main administrator account cannot be edited.',
+      })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+
+    if (normalizedEmail === MAIN_ADMIN_EMAIL) {
+      return res.status(403).json({
+        success: false,
+        message: 'This email is reserved for the main administrator.',
+      })
+    }
+
+    user.name = name.trim()
+    user.email = normalizedEmail
+    user.role = role
+
+    await user.save()
+
+    return res.json({
+      success: true,
+      message: 'User account updated successfully.',
+      data: {
+        user: {
+          id: String(user._id),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          active: user.active,
+        },
+      },
+    })
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email already exists.',
+      })
+    }
+
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID.',
+      })
+    }
+
+    return next(error)
+  }
+}
+
+export async function deleteUser(req, res, next) {
+  try {
+    const { id } = req.params
+    const user = await User.findById(id)
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.',
+      })
+    }
+
+    if (user.email.toLowerCase() === MAIN_ADMIN_EMAIL) {
+      return res.status(403).json({
+        success: false,
+        message: 'The main administrator account cannot be deleted.',
+      })
+    }
+
+    await user.deleteOne()
+
+    return res.json({
+      success: true,
+      message: 'User account deleted successfully.',
+    })
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID.',
+      })
+    }
+
+    return next(error)
+  }
+}

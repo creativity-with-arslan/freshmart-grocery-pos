@@ -1,4 +1,3 @@
-
 import express from 'express'
 import {
   setupFirstAdmin,
@@ -6,6 +5,8 @@ import {
   getCurrentUser,
   createUser,
   getUsers,
+  updateUser,
+  deleteUser,
 } from '../controllers/authController.js'
 import {
   authenticateToken,
@@ -36,6 +37,20 @@ router.post(
   authenticateToken,
   requireRole('admin'),
   createUser
+)
+
+router.patch(
+  '/users/:id',
+  authenticateToken,
+  requireRole('admin'),
+  updateUser
+)
+
+router.delete(
+  '/users/:id',
+  authenticateToken,
+  requireRole('admin'),
+  deleteUser
 )
 
 export default router

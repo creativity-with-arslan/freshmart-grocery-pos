@@ -1,9 +1,18 @@
-
 import { useCallback, useEffect, useState } from 'react'
-import { UserPlus, Users, RefreshCw, ShieldCheck } from 'lucide-react'
+import {
+  UserPlus,
+  Users,
+  RefreshCw,
+  ShieldCheck,
+  Pencil,
+  Trash2,
+  X,
+  Save,
+} from 'lucide-react'
 import { apiRequest } from '../services/api'
 
-const API_URL = `${(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')}/api/auth/users`
+const API_URL = '/api/auth/users'
+const MAIN_ADMIN_EMAIL = 'admin@freshmart.local'
 
 const emptyForm = {
   name: '',
@@ -12,11 +21,20 @@ const emptyForm = {
   role: 'cashier',
 }
 
+const emptyEditForm = {
+  name: '',
+  email: '',
+  role: 'cashier',
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const [editForm, setEditForm] = useState(emptyEditForm)
+  const [editingUser, setEditingUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -41,6 +59,15 @@ export default function UserManagement() {
   function handleChange(event) {
     const { name, value } = event.target
     setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function handleEditChange(event) {
+    const { name, value } = event.target
+    setEditForm((current) => ({ ...current, [name]: value }))
+  }
+
+  function isMainAdmin(user) {
+    return user.email?.toLowerCase() === MAIN_ADMIN_EMAIL
   }
 
   async function handleSubmit(event) {
@@ -68,6 +95,86 @@ export default function UserManagement() {
       setError(err.message || 'Could not create user.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  function startEditing(user) {
+    if (isMainAdmin(user)) return
+
+    setEditingUser(user)
+    setEditForm({
+      name: user.name || '',
+      email: user.email || '',
+      role: user.role || 'cashier',
+    })
+    setError('')
+    setSuccess('')
+  }
+
+  function cancelEditing() {
+    setEditingUser(null)
+    setEditForm(emptyEditForm)
+  }
+
+  async function handleUpdate(event) {
+    event.preventDefault()
+
+    if (!editingUser || isMainAdmin(editingUser)) return
+
+    setError('')
+    setSuccess('')
+    setSaving(true)
+
+    try {
+      await apiRequest(`${API_URL}/${editingUser._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          email: editForm.email.trim().toLowerCase(),
+          role: editForm.role,
+        }),
+      })
+
+      setEditingUser(null)
+      setEditForm(emptyEditForm)
+      setSuccess('User account updated successfully.')
+      await loadUsers()
+    } catch (err) {
+      setError(err.message || 'Could not update user.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(user) {
+    if (isMainAdmin(user)) return
+
+    const confirmed = window.confirm(
+      `Permanently delete the account for ${user.name} (${user.email})? This cannot be undone.`
+    )
+
+    if (!confirmed) return
+
+    setError('')
+    setSuccess('')
+    setDeletingId(user._id)
+
+    try {
+      await apiRequest(`${API_URL}/${user._id}`, {
+        method: 'DELETE',
+      })
+
+      if (editingUser?._id === user._id) {
+        cancelEditing()
+      }
+
+      setSuccess('User account deleted successfully.')
+      await loadUsers()
+    } catch (err) {
+      setError(err.message || 'Could not delete user.')
+    } finally {
+      setDeletingId('')
     }
   }
 
@@ -161,19 +268,101 @@ export default function UserManagement() {
             </button>
           </div>
         </form>
-
-        {error && (
-          <p role="alert" className="mt-4 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-300">
-            {error}
-          </p>
-        )}
-
-        {success && (
-          <p role="status" className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-300">
-            {success}
-          </p>
-        )}
       </section>
+
+      {editingUser && (
+        <section className="rounded-2xl border border-emerald-400/20 bg-[#11182a] p-5 sm:p-7">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-bold">Edit staff account</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Update the selected account's details and role.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={cancelEditing}
+              className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
+              aria-label="Cancel editing"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <form onSubmit={handleUpdate} className="grid gap-5 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-300">
+              Full name
+              <input
+                className={inputClass}
+                name="name"
+                value={editForm.name}
+                onChange={handleEditChange}
+                maxLength={100}
+                required
+              />
+            </label>
+
+            <label className="text-sm font-medium text-slate-300">
+              Email address
+              <input
+                className={inputClass}
+                name="email"
+                type="email"
+                value={editForm.email}
+                onChange={handleEditChange}
+                maxLength={254}
+                required
+              />
+            </label>
+
+            <label className="text-sm font-medium text-slate-300">
+              Account role
+              <select
+                className={inputClass}
+                name="role"
+                value={editForm.role}
+                onChange={handleEditChange}
+                required
+              >
+                <option value="cashier">Cashier</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </label>
+
+            <div className="flex items-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 disabled:opacity-60"
+              >
+                <Save size={17} />
+                {saving ? 'Saving...' : 'Save changes'}
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditing}
+                disabled={saving}
+                className="rounded-xl border border-white/10 px-4 py-3 text-sm text-slate-300 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      {(error || success) && (
+        <p
+          role={error ? 'alert' : 'status'}
+          className={`rounded-xl border p-3 text-sm ${
+            error
+              ? 'border-rose-400/20 bg-rose-400/10 text-rose-300'
+              : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
+          }`}
+        >
+          {error || success}
+        </p>
+      )}
 
       <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#11182a]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] p-5 sm:p-6">
@@ -201,54 +390,97 @@ export default function UserManagement() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] text-left text-sm">
+          <table className="w-full min-w-[850px] text-left text-sm">
             <thead className="bg-white/[0.02] text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-5 py-4 font-medium">Name</th>
                 <th className="px-5 py-4 font-medium">Email</th>
                 <th className="px-5 py-4 font-medium">Role</th>
                 <th className="px-5 py-4 font-medium">Status</th>
+                <th className="px-5 py-4 font-medium">Actions</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-white/[0.05]">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-5 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
                     Loading staff accounts...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-5 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-5 py-10 text-center text-slate-400">
                     No user accounts found.
                   </td>
                 </tr>
               ) : (
-                users.map((item) => (
-                  <tr key={item._id} className="hover:bg-white/[0.02]">
-                    <td className="px-5 py-4 font-medium text-white">
-                      {item.name}
-                    </td>
-                    <td className="px-5 py-4 text-slate-400">
-                      {item.email}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-300">
-                        <ShieldCheck size={13} />
-                        {item.role}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        item.active
-                          ? 'bg-emerald-400/10 text-emerald-300'
-                          : 'bg-rose-400/10 text-rose-300'
-                      }`}>
-                        {item.active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                users.map((item) => {
+                  const protectedUser = isMainAdmin(item)
+
+                  return (
+                    <tr key={item._id} className="hover:bg-white/[0.02]">
+                      <td className="px-5 py-4 font-medium text-white">
+                        {item.name}
+                        {protectedUser && (
+                          <span className="ml-2 inline-block rounded-full bg-amber-400/10 px-2 py-1 text-[10px] font-semibold text-amber-300">
+                            MAIN ACCOUNT
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4 text-slate-400">{item.email}</td>
+
+                      <td className="px-5 py-4">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold capitalize text-emerald-300">
+                          <ShieldCheck size={13} />
+                          {item.role}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            item.active
+                              ? 'bg-emerald-400/10 text-emerald-300'
+                              : 'bg-rose-400/10 text-rose-300'
+                          }`}
+                        >
+                          {item.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {protectedUser ? (
+                          <span className="text-xs text-slate-500">
+                            Protected account
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditing(item)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5 hover:text-white"
+                            >
+                              <Pencil size={14} />
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item)}
+                              disabled={deletingId === item._id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/20 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-400/10 disabled:opacity-50"
+                            >
+                              <Trash2 size={14} />
+                              {deletingId === item._id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
